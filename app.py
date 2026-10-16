@@ -90,10 +90,11 @@ def grafico_linea(hist, f, sd, quiebre=None, titulo=""):
         if qx:
             fig.add_trace(go.Scatter(x=qx, y=qy, mode="markers", name="Quiebre probable",
                                      marker=dict(color=ROJO, size=10)))
-    fig.update_layout(title=titulo, height=340, margin=dict(l=10, r=10, t=40, b=10),
-                      legend=dict(orientation="h", y=-0.15), plot_bgcolor="white",
+    fig.update_layout(title=titulo, height=380, margin=dict(l=10, r=10, t=40, b=80),
+                      legend=dict(orientation="h", y=-0.32), plot_bgcolor="white",
                       yaxis=dict(gridcolor="#e5e8e3", title="Unidades"),
-                      xaxis=dict(categoryorder="array", categoryarray=[mlabel(m) for m in meses]))
+                      xaxis=dict(categoryorder="array", categoryarray=[mlabel(m) for m in meses], tickangle=-45,
+                                 tickmode="array", tickvals=[mlabel(m) for m in meses[::3]]))
     return fig
 
 
@@ -144,7 +145,7 @@ with tab1:
     titulo = f'{S[0]["sku"]} · {S[0]["prod"]}' if len(S) == 1 else \
         f'Ventas mensuales y pronóstico · {"16 SKU" if fam == "Todas" else fam}'
     g1.plotly_chart(grafico_linea(hist, fc, sd, S[0]["quiebre"] if len(S) == 1 else None, titulo),
-                    use_container_width=True)
+                    use_container_width=True, key="el1")
     with g2:
         st.markdown("**SKU que requieren pedido**")
         st.caption("Ordenados por cobertura, de menor a mayor.")
@@ -153,7 +154,7 @@ with tab1:
                 "SKU": s["sku"], "Producto": s["prod"][:28], "Cobertura (meses)": round(s["cob"], 1),
                 "Pedido (u.)": s["ped"], "Estado": ESTADO[s["state"]]}
                 for s in sorted(riesgo, key=lambda s: s["cob"])]),
-                hide_index=True, use_container_width=True)
+                hide_index=True, use_container_width=True, key="el2")
         else:
             st.success("Todos los SKU de esta selección cubren el lead time de 3 meses.")
 
@@ -181,7 +182,7 @@ with tab2:
         tabla.style.map(color_estado, subset=["Estado"]).format(
             {"Pedido USD": lambda v: f"${fmt(v, 2)}", "Cobertura (meses)": lambda v: fmt(v, 1),
              "Pronóst. 3 m": fmt, "Stock": fmt, "Stock seguridad": fmt, "Pedido sugerido": fmt}),
-        hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row")
+        hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row", key="repo_tabla")
     st.markdown(f'**Total:** {fmt(tabla["Pedido sugerido"].sum())} u. · '
                 f'${fmt(tabla["Pedido USD"].sum(), 2)} a costo')
     st.caption("■ Quiebre inminente: cobertura menor a 1 mes · ▲ Pedir ahora: menor al lead time (3 meses) "
@@ -191,7 +192,7 @@ with tab2:
     s = orden[filas[0]] if filas else (orden[0] if orden else None)
     if s:
         st.plotly_chart(grafico_linea(s["hist"], s["f"], s["sd"], s["quiebre"], f'{s["sku"]} · {s["prod"]}'),
-                        use_container_width=True)
+                        use_container_width=True, key="el3")
         st.caption(f'Mejor modelo en validación: **{s["best"]}** (WAPE {fmt(s["bestW"], 1)} %, '
                    f'Bias {"+" if s["bestB"] > 0 else ""}{fmt(s["bestB"], 1)} %). '
                    f'WAPE con SES: {fmt(s["wape"]["SES"], 1)} %. Meses con quiebre probable: {s["nq"]}.')
@@ -212,13 +213,13 @@ with tab3:
         fig.add_vline(x=naive["wape"], line_dash="dash", line_color="#4f5a54")
         fig.update_layout(height=320, margin=dict(l=10, r=40, t=10, b=10), plot_bgcolor="white",
                           yaxis=dict(autorange="reversed"), xaxis=dict(range=[0, 145], gridcolor="#e5e8e3"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, key="el4")
     with p2:
         st.markdown("**Detalle por modelo**")
         st.caption("Bias positivo: el modelo pide de más. Negativo: pide de menos. MASE < 1: supera al Naive.")
         st.dataframe(pd.DataFrame([{"Modelo": g["m"], "WAPE %": g["wape"], "Bias %": g["bias"],
                                     "MASE": g["mase"], "WAPE USD %": g["wusd"], "WAPE 3 m acum. %": g["acum"]}
-                                   for g in G]), hide_index=True, use_container_width=True)
+                                   for g in G]), hide_index=True, use_container_width=True, key="el5")
 
     st.markdown("**WAPE (%) por SKU y modelo**")
     st.caption("En negrita, el mejor modelo de cada SKU. El color indica el nivel de error.")
@@ -230,12 +231,12 @@ with tab3:
                               zmin=40, zmax=160, showscale=False))
     hm.update_layout(height=max(220, 34 * len(S) + 60), margin=dict(l=10, r=10, t=10, b=10),
                      yaxis=dict(autorange="reversed"))
-    st.plotly_chart(hm, use_container_width=True)
+    st.plotly_chart(hm, use_container_width=True, key="el6")
 
     st.markdown("**Nivel familia: pronóstico directo vs. suma por SKU**")
     st.caption("Sumar los pronósticos de cada SKU con SES da el menor error agregado (68,8 %).")
     st.dataframe(pd.DataFrame([{"Modelo": f["m"], "Directo por familia %": f["d"], "Suma por SKU %": f["b"]}
-                               for f in D["fam"]]), hide_index=True)
+                               for f in D["fam"]]), hide_index=True, key="fam_tabla")
 
 # ---------------------------------------------------------------- vista 4: calidad y quiebres
 with tab4:
@@ -264,13 +265,13 @@ with tab4:
                                           [0.67, ROJO], [1, ROJO]]))
     mp.update_layout(height=max(200, 26 * len(S) + 60), margin=dict(l=10, r=10, t=10, b=10),
                      yaxis=dict(autorange="reversed"), plot_bgcolor="white")
-    st.plotly_chart(mp, use_container_width=True)
+    st.plotly_chart(mp, use_container_width=True, key="el7")
     st.caption("Gris: con venta · Ámbar: cero sin demanda (había stock) · Rojo: quiebre probable")
 
     st.markdown("**Meses con venta cero**")
     st.dataframe(pd.DataFrame([{"SKU": s["sku"], "Producto": s["prod"], "Mes": mlabel(D["months"][i]),
                                 "Stock inicial": s["stockIni"][i],
                                 "Clasificación": "■ Quiebre probable" if s["quiebre"][i] else "▲ Sin demanda"}
-                               for s, i in ceros]), hide_index=True, use_container_width=True)
+                               for s, i in ceros]), hide_index=True, use_container_width=True, key="el8")
     st.caption("Stock reconstruido hacia atrás desde el inventario de cierre 2025: stock inicial = stock final "
                "− compras + ventas. Los valores negativos indican diferencias entre fuentes.")
