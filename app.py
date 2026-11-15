@@ -63,7 +63,9 @@ def cargar() -> dict:
         s["ped"] = max(0, math.ceil(s["f3"] + s["ss"] - s["stock"]))
         s["pedUsd"] = s["ped"] * s["cost"]
         s["invUsd"] = s["stock"] * s["cost"]
-        s["state"] = "crit" if s["cob"] < 1 else ("warn" if s["cob"] < LT else "good")
+        # Regla corregida (prueba de integridad 3.4.3): "Cubierto" solo si el pedido sugerido es 0,
+        # para que el semáforo, la tarjeta y la tabla de reposición digan lo mismo.
+        s["state"] = "crit" if s["cob"] < 1 else ("warn" if s["ped"] > 0 else "good")
         s["nq"] = sum(s["quiebre"])
     return D
 
@@ -136,7 +138,7 @@ with tab1:
     k3.metric("SKU que requieren pedido", f"{len(riesgo)} de {len(S)}")
     k3.caption(f'{sum(s["state"] == "crit" for s in S)} con quiebre inminente')
     k4.metric("Pedido sugerido a costo", f"${fmt(ped, 2)}")
-    k4.caption(f'WAPE del modelo vigente: {fmt(ses["wape"], 1)} % (Naive: {fmt(naive["wape"], 1)} %)')
+    k4.caption(f'WAPE global del modelo (16 SKU): {fmt(ses["wape"], 1)} % (Naive: {fmt(naive["wape"], 1)} %)')
 
     g1, g2 = st.columns([1.25, 1])
     hist = [sum(s["hist"][i] for s in S) for i in range(len(D["months"]))]
@@ -156,7 +158,7 @@ with tab1:
                 for s in sorted(riesgo, key=lambda s: s["cob"])]),
                 hide_index=True, use_container_width=True, key="el2")
         else:
-            st.success("Todos los SKU de esta selección cubren el lead time de 3 meses.")
+            st.success("Ningún SKU de esta selección requiere pedido.")
 
 # ---------------------------------------------------------------- vista 2: reposición
 with tab2:
@@ -185,8 +187,9 @@ with tab2:
         hide_index=True, use_container_width=True, on_select="rerun", selection_mode="single-row", key="repo_tabla")
     st.markdown(f'**Total:** {fmt(tabla["Pedido sugerido"].sum())} u. · '
                 f'${fmt(tabla["Pedido USD"].sum(), 2)} a costo')
-    st.caption("■ Quiebre inminente: cobertura menor a 1 mes · ▲ Pedir ahora: menor al lead time (3 meses) "
-               "· ● Cubierto: 3 meses o más. Seleccione una fila para ver el detalle del SKU.")
+    st.caption("■ Quiebre inminente: cobertura menor a 1 mes · ▲ Pedir ahora: el stock no alcanza para cubrir "
+               "el pronóstico de 3 meses más el stock de seguridad · ● Cubierto: no requiere pedido. "
+               "Seleccione una fila para ver el detalle del SKU.")
 
     filas = evento.selection.rows if evento and evento.selection else []
     s = orden[filas[0]] if filas else (orden[0] if orden else None)
