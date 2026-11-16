@@ -23,6 +23,7 @@ MES_DECISION = "enero 2026"
 AZUL, NARANJA, ROJO, AMBAR, VERDE = "#2a78d6", "#eb6834", "#c63434", "#b27800", "#0c8a0c"
 ESTADO = {"crit": "■ Quiebre inminente", "warn": "▲ Pedir ahora", "good": "● Cubierto"}
 COLOR_ESTADO = {"crit": ROJO, "warn": AMBAR, "good": VERDE}
+PRIORIDAD = {"crit": 0, "warn": 1, "good": 2}   # orden de urgencia en las tablas
 
 st.set_page_config(page_title="Planificación de Importaciones Avícolas", page_icon="📦", layout="wide")
 st.markdown(
@@ -150,12 +151,12 @@ with tab1:
                     use_container_width=True, key="el1")
     with g2:
         st.markdown("**SKU que requieren pedido**")
-        st.caption("Ordenados por cobertura, de menor a mayor.")
+        st.caption("Ordenados por urgencia (■, ▲, ●) y, dentro de cada estado, por cobertura de menor a mayor.")
         if riesgo:
             st.dataframe(pd.DataFrame([{
                 "SKU": s["sku"], "Producto": s["prod"][:28], "Cobertura (meses)": round(s["cob"], 1),
                 "Pedido (u.)": s["ped"], "Estado": ESTADO[s["state"]]}
-                for s in sorted(riesgo, key=lambda s: s["cob"])]),
+                for s in sorted(riesgo, key=lambda s: (PRIORIDAD[s["state"]], s["cob"]))]),
                 hide_index=True, use_container_width=True, key="el2")
         else:
             st.success("Ningún SKU de esta selección requiere pedido.")
@@ -166,7 +167,7 @@ with tab2:
     st.caption("Pedido sugerido = pronóstico 3 meses + stock de seguridad − stock al cierre de 2025. "
                "Stock de seguridad = 1,65 × desviación del error acumulado de 3 meses del modelo SES "
                "(nivel de servicio 95 %). Cobertura = stock ÷ pronóstico mensual.")
-    orden = sorted(S, key=lambda s: s["cob"])
+    orden = sorted(S, key=lambda s: (PRIORIDAD[s["state"]], s["cob"]))
     tabla = pd.DataFrame([{
         "SKU": s["sku"], "Producto": s["prod"][:34], "Familia": s["fam"],
         "Pronóst. 3 m": round(s["f3"]), "Stock": int(s["stock"]),
